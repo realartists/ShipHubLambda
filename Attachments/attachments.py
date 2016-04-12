@@ -7,6 +7,10 @@ import binascii
 import base64
 import boto3
 import sys
+try:
+  from urllib import quote
+except:
+  from urllib.parse import quote
 
 def validate_user(token, server="api.github.com"):
   r = requests.get("https://%s/user" % (server), headers={
@@ -41,6 +45,7 @@ def store(token, fileData, filename, fileMime):
       ContentType=fileMime,
       Key=path)
       
+    urlPath = path.replace("/" + filename, "/" + quote(filename))
     return "https://s3.amazonaws.com/shiphub-attachments/" + path    
 
 def handler(event, context):
