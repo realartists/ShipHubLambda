@@ -1,6 +1,5 @@
 import requests
 import traceback
-import uuid
 import os
 import os.path
 import binascii
@@ -26,13 +25,12 @@ def validate_user(token, server="api.github.com"):
 
 def store(token, fileData, filename, fileMime):
   if validate_user(token):
-    myUUID = uuid.uuid4()
     myRand = binascii.hexlify(os.urandom(16))
     
     if filename is None:
       filename = "file"
     
-    path = str(myUUID) + "/" + myRand + "/" + filename
+    path = myRand + "/" + filename
     
     print(path)
     
@@ -46,7 +44,7 @@ def store(token, fileData, filename, fileMime):
       Key=path)
       
     urlPath = path.replace("/" + filename, "/" + quote(filename))
-    return "https://s3.amazonaws.com/shiphub-attachments/" + path    
+    return "https://s3.amazonaws.com/shiphub-attachments/" + urlPath
 
 def handler(event, context):
   fileDataB64 = event["file"]
