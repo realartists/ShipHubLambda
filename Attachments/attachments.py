@@ -39,7 +39,7 @@ def s3_url(s3Path, filename):
   url = "https://s3.amazonaws.com/shiphub-attachments/" + urlPath
   return url
 
-def store(token, fileData, filename, fileMime):
+def store(fileData, filename, fileMime):
   if filename is None:
       filename = "file"
   s3 = boto3.resource('s3')
@@ -52,7 +52,7 @@ def store(token, fileData, filename, fileMime):
     Key=path)
   return s3_url(path, filename)
 
-def presign(token, filename, fileMime):
+def presign(filename, fileMime):
   if filename is None:
       filename = "file"
   path = s3_path(filename)
@@ -63,7 +63,7 @@ def presign(token, filename, fileMime):
           'Bucket': 'shiphub-attachments',
           'Key': path,
           'ACL': 'public-read',
-          'ContentType': mime
+          'ContentType': fileMime
       }
   )
   url = s3_url(path, filename)
@@ -74,12 +74,12 @@ def handler(event, context):
     raise Exception("Invalid GitHub token")
     
   if "presign" in event:
-    (uploadURL, URL) = presign(event["token"], event["filename"], event["fileMime"])
+    (uploadURL, url) = presign(event["filename"], event["fileMime"])
     return { "upload": uploadURL, "url": url }
   else:
     fileDataB64 = event["file"]
     fileData = base64.b64decode(fileDataB64)
-    url = store(event["token"], fileData, event["filename"], event["fileMime"])
+    url = store(fileData, event["filename"], event["fileMime"])
     return { "url": url }
 
 if __name__ == "__main__":
@@ -89,12 +89,12 @@ if __name__ == "__main__":
     print("Invalid GitHub token")
     sys.exit(1)
   if 'PRESIGN' in os.environ:
-    (uploadURL, URL) = presign(token, os.path.basename(filename), mime)
+    (uploadURL, URL) = presign(os.path.basename(filename), mime)
     r = requests.put(uploadURL, fileData, headers={"Content-Type": mime})
     print(r.text)
     print("Uploaded to %s. Now available at %s" % (uploadURL, URL))
   else:
     fileData = open(filename, "rb").read()
-    print(store(token, fileData, os.path.basename(filename), mime))
+    print(store(fileData, os.path.basename(filename), mime))
 
     
