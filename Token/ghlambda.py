@@ -22,8 +22,8 @@ def redeem_code(client_id, client_secret, code):
 def oauth_handler(event, context):  
   code = event["code"]
   
-  client_secret = "044a8c057d8a00f023f4c19932d0fcbb77deaa57"
-  client_id = "55456285644976e93634"
+  client_secret = "3aeb9af555d7d2285120b133304c34e5a8058078"
+  client_id = "da1cde7cfd134d837ae6"
   
   if "environment" in event:
     e = event["environment"]
