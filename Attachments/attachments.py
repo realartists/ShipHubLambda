@@ -18,14 +18,12 @@ except:
   import urlparse
 
 def validate_user(token, server="api.github.com"):
-  r = requests.get("https://%s/user" % (server), headers={
+  r = requests.get("https://%s/rate_limit" % (server), headers={
     "Accept": "application/json",
     "Authorization": "token %s" % (token)
   })
   try:
-    r.raise_for_status()
-    result = r.json()
-    return ("login" in result)
+    return r.status_code == 200
   except:
     return False
     
