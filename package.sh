@@ -8,7 +8,7 @@ fi
 rm "$1.zip"
 
 cd "$1"
-zip -r "../$1.zip" *
+zip -r --exclude=*.DS_Store* --exclude=*.pyc "../$1.zip" *
 
 if [ $? -eq "0" ] ; then
   echo "$1.zip" ready for upload

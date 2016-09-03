@@ -5,6 +5,7 @@ import base64
 import boto3
 import io
 import httplib
+import json
 from botocore.client import Config
 import sys
 try:
@@ -17,11 +18,18 @@ try:
 except:
   import urlparse
 
-def migrate_attachment(organizationID, attachmentID, mimeType, filename, token):
+def validate_attachment(organizationID, attachmentID, mimeType, filename, token):
   ucHost = "uc.realartists.com"
   path = "/content/%s/%s?auth=%s&mimeType=%s" % (organizationID, attachmentID, token, mimeType)
   
-  (uploadURL, url) = presign(filename, mimeType)
+  downloadConn = httplib.HTTPSConnection(ucHost)
+  downloadConn.request("HEAD", path)
+  download = downloadConn.getresponse()
+  return download.status == 200
+
+def migrate_attachment(uploadURL, organizationID, attachmentID, mimeType, filename, token):
+  ucHost = "uc.realartists.com"
+  path = "/content/%s/%s?auth=%s&mimeType=%s" % (organizationID, attachmentID, token, mimeType)
   
   downloadConn = httplib.HTTPSConnection(ucHost)
   downloadConn.request("GET", path)
@@ -39,7 +47,6 @@ def migrate_attachment(organizationID, attachmentID, mimeType, filename, token):
   if (upload.status >= 400):
     raise Exception("Bad upload code %d" % (upload.getcode()))
   
-  return url
     
 def s3_path(filename):
   myRand = str(binascii.hexlify(os.urandom(16)).decode("ASCII"))
@@ -80,10 +87,40 @@ def presign(filename, fileMime):
   )
   url = s3_url(path, filename)
   return (uploadURL, url)
+  
+def callStep2(uploadURL, event):
+  data = dict(event)
+  data["uploadURL"] = uploadURL
+  message = {"default": json.dumps(data)}
+  messageStr = json.dumps(message)
+  
+  print("Sending SNS message", messageStr)
+  
+  client = boto3.client('sns')
+  client.publish(
+    TopicArn='arn:aws:sns:us-east-1:450120591443:ship-migrate-attachments',
+    Message=messageStr,
+    MessageStructure="json"
+  )
 
 def handler(event, context):
-  url = migrate_attachment(event["organizationID"], event["attachmentID"], event["mimeType"], event["filename"], event["token"])
-  return { "url" : url }
+  """Called by the client application to start the migration process. Returns quickly."""
+  valid = validate_attachment(event["organizationID"], event["attachmentID"], event["mimeType"], event["filename"], event["token"])
+  if valid:  
+    (uploadURL, url) = presign(event["filename"], event["mimeType"])
+    callStep2(uploadURL, event)
+    return { "url" : url }
+  else:
+    return { "error" : "Invalid token or attachment" }
+  
+def handler2(event, context):
+  """Called by the first shiphub-migrate-attachments lambda to actually finish the migration."""
+  print("event", type(event))
+  print("event", event)
+  for record in event[u"Records"]:
+    msg = json.loads(record[u"Sns"][u"Message"])
+    migrate_attachment(msg["uploadURL"], msg["organizationID"], msg["attachmentID"], msg["mimeType"], msg["filename"], msg["token"])
+  return { "result" : "success" }
 
 if __name__ == "__main__":
   if len(sys.argv) != 6:
@@ -92,5 +129,12 @@ if __name__ == "__main__":
     
   print(repr(sys.argv))
   (organizationID, attachmentID, mimeType, filename, token) = sys.argv[1:]
-  print migrate_attachment(organizationID, attachmentID, mimeType, filename, token)
+  valid = validate_attachment(organizationID, attachmentID, mimeType, filename, token)
+  if not valid:
+    print "Invalid token or attachment"
+    sys.exit(1)
+  (uploadURL, url) = presign(filename, mimeType)
+  migrate_attachment(uploadURL, organizationID, attachmentID, mimeType, filename, token)
+  print url
+  
 
