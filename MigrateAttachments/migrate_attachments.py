@@ -55,7 +55,7 @@ def s3_path(filename):
   
 def s3_url(s3Path, filename):
   urlPath = s3Path.replace("/" + filename, "/" + quote(filename))
-  url = "https://s3.amazonaws.com/shiphub-attachments/" + urlPath
+  url = "https://shipusercontent.com/" + urlPath
   return url
 
 def store(fileData, filename, fileMime):
